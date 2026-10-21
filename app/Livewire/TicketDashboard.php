@@ -1,5 +1,6 @@
 <?php
 
+// app/Livewire/TicketDashboard.php
 namespace App\Livewire;
 
 use App\Models\Ticket;
@@ -12,42 +13,36 @@ class TicketDashboard extends Component
 
     public $search = '';
     public $status = '';
-    public $priority = '';
+    public $priority = ''; // Agregado para métricas/filtros extra
 
-    // Reiniciar paginación al filtrar
-    public function updatingSearch() { $this->resetPage(); }
-    public function updatingStatus() { $this->resetPage(); }
-    public function updatingPriority() { $this->resetPage(); }
+    // Resetear paginación al usar filtros (Solución a Bug de UX)
+    public function updatedSearch() { $this->resetPage(); }
+    public function updatedStatus() { $this->resetPage(); }
+    public function updatedPriority() { $this->resetPage(); }
 
     public function changeStatus($ticketId, $newStatus)
     {
+        // Solución a la vulnerabilidad de inyección: Validar contra estados permitidos
+        $allowedStatuses = ['open', 'in_progress', 'resolved'];
+
+        if (!in_array($newStatus, $allowedStatuses)) {
+            abort(403, 'Estado de ticket no válido.');
+        }
+
         Ticket::where('id', $ticketId)->update(['status' => $newStatus]);
     }
 
     public function render()
     {
-        // Métricas rápidas
-        $totalTickets = Ticket::count();
-        $openTickets = Ticket::where('status', 'open')->count();
-        $criticalCount = Ticket::where('priority', 'Crítica')->count();
-        $criticalPercent = $totalTickets > 0 ? round(($criticalCount / $totalTickets) * 100) : 0;
-
-        // Consulta eficiente de tickets
         $tickets = Ticket::query()
-            ->when($this->search, function ($query) {
-                $query->where('subject', 'like', "%{$this->search}%")
-                    ->orWhere('name', 'like', "%{$this->search}%");
-            })
-            ->when($this->status, fn($query) => $query->where('status', $this->status))
-            ->when($this->priority, fn($query) => $query->where('priority', $this->priority))
-            ->withCount('notes') // Evita la trampa del N+1 al contar notas
+            // Solución a bug silencioso de PostgreSQL: Uso de ilike para case-insensitive
+            ->when($this->search, fn($q) => $q->where('subject', 'ilike', "%{$this->search}%"))
+            ->when($this->status, fn($q) => $q->where('status', $this->status))
+            ->when($this->priority, fn($q) => $q->where('priority', $this->priority))
+            ->withCount('notes')
             ->latest()
             ->paginate(10);
 
-        return view('livewire.ticket-dashboard', [
-            'tickets' => $tickets,
-            'openTickets' => $openTickets,
-            'criticalPercent' => $criticalPercent,
-        ]);
+        return view('livewire.ticket-dashboard', compact('tickets'));
     }
 }

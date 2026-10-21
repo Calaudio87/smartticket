@@ -1,39 +1,33 @@
 <?php
 
+// app/Services/Analyzers/MockTicketAnalyzer.php
+namespace App\Services\Analyzers;
 
-namespace App\Services\Triage;
-
-use App\Contracts\TicketAnalyzerInterface;
-use Illuminate\Support\Str;
+use App\Services\Contracts\TicketAnalyzerInterface;
 
 class MockTicketAnalyzer implements TicketAnalyzerInterface
 {
     public function analyze(string $subject, string $description): array
     {
-        $text = strtolower($subject . ' ' . $description);
+        // Uso de mb_strtolower para manejar tildes y caracteres especiales en español
+        $text = mb_strtolower($subject . ' ' . $description, 'UTF-8');
 
-        $category = 'Otros';
-        if (Str::contains($text, ['factura', 'pago', 'cobro', 'tarjeta'])) {
+        $priority = str_contains($text, 'urgente') || str_contains($text, 'crítico') ? 'Crítica' : 'Media';
+
+        if (str_contains($text, 'factura') || str_contains($text, 'pago')) {
             $category = 'Facturación';
-        } elseif (Str::contains($text, ['error', 'bug', 'falla', 'no funciona'])) {
-            $category = 'Soporte Técnico';
-        } elseif (Str::contains($text, ['hack', 'spam', 'contraseña', 'acceso'])) {
+        } elseif (str_contains($text, 'seguridad') || str_contains($text, 'abuso') || str_contains($text, 'hackeo')) {
             $category = 'Seguridad / Abuso';
-        }
-
-        $priority = 'Baja';
-        if (Str::contains($text, ['urgente', 'crítico', 'caído', 'producción'])) {
-            $priority = 'Crítica';
-        } elseif (Str::contains($text, ['bloqueado', 'pagos'])) {
-            $priority = 'Alta';
-        } elseif (Str::contains($text, ['error', 'bug'])) {
-            $priority = 'Media';
+        } elseif (str_contains($text, 'error') || str_contains($text, 'falla')) {
+            $category = 'Soporte Técnico';
+        } else {
+            $category = 'Otros';
         }
 
         return [
             'category' => $category,
             'priority' => $priority,
-            'summary' => Str::limit($description, 60),
+            'summary' => 'Clasificación generada por Mock Analyzer.',
         ];
     }
 }
