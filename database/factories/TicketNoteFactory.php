@@ -18,7 +18,8 @@ class TicketNoteFactory extends Factory
     public function definition(): array
     {
         return [
-            //
+            'content' => fake()->paragraph(),
+            // ticket_id y user_id se pasarán desde el seeder
         ];
     }
 }
